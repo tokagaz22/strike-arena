@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>STRIKE ARENA</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101722;color:#eef4ff;font:16px Arial,sans-serif;overflow:hidden}
+#hud{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;z-index:2;gap:8px}
+.pill{background:#202d3d;padding:10px 14px;border:1px solid #40536b;border-radius:12px}
+#game{display:block;width:100vw;height:100vh;touch-action:none}
+#help{position:fixed;bottom:12px;left:12px;right:12px;text-align:center;color:#b9c8dc;font-size:13px;pointer-events:none}
+button{background:#27a8ff;color:#061321;border:0;border-radius:14px;padding:14px 22px;font-weight:bold;font-size:16px}
+#fire{position:fixed;right:22px;bottom:60px;width:86px;height:86px;border-radius:50%;background:#ffb02e;color:#201400;z-index:3;touch-action:none}
+#stick{position:fixed;left:22px;bottom:55px;width:116px;height:116px;border-radius:50%;background:#ffffff20;border:2px solid #ffffff55;z-index:3;touch-action:none}
+#nub{position:absolute;width:48px;height:48px;left:32px;top:32px;border-radius:50%;background:#d8e8ffbb}
+#overlay{position:fixed;inset:0;background:#07101ddd;display:flex;align-items:center;justify-content:center;z-index:5;text-align:center;padding:24px}
+.panel{max-width:420px;background:#1a293a;border:1px solid #49617d;border-radius:20px;padding:26px}
+</style>
+</head>
+<body>
+<div id="hud"><div class="pill">STRIKE ARENA</div><div class="pill">Очки: <b id="score">0</b></div><div class="pill">Энергия: <b id="hp">100</b></div></div>
+<canvas id="game"></canvas>
+<div id="stick"><div id="nub"></div></div><button id="fire">ИМПУЛЬС</button>
+<div id="help">Двигайся левым джойстиком · Нажимай «ИМПУЛЬС», чтобы помечать тренировочных ботов</div>
+<div id="overlay"><div class="panel"><h1>STRIKE ARENA</h1><p>Аркадная тренировочная арена. Помечай роботов безопасными энергетическими импульсами и набирай очки.</p><button id="start">НАЧАТЬ</button></div></div>
+<script>
+(()=> {
+const c=document.getElementById('game'),ctx=c.getContext('2d'),scoreEl=document.getElementById('score'),hpEl=document.getElementById('hp');
+let w,h,player={x:0,y:0,r:13,hp:100},bots=[],shots=[],score=0,keys={},move={x:0,y:0},running=false,last=0;
+function resize(){w=c.width=innerWidth*devicePixelRatio;h=c.height=innerHeight*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);w=innerWidth;h=innerHeight;player.x=w/2;player.y=h/2; if(!bots.length)for(let i=0;i<7;i++)bots.push({x:70+Math.random()*(w-140),y:100+Math.random()*(h-200),r:15,tag:0});}
+addEventListener('resize',resize);resize();
+function fire(){if(!running)return;let target=bots.filter(b=>!b.tag).sort((a,b)=>Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y))[0];if(target){target.tag=1;score+=10;scoreEl.textContent=score;setTimeout(()=>{target.x=40+Math.random()*(w-80);target.y=80+Math.random()*(h-150);target.tag=0},700)}}
+document.getElementById('fire').addEventListener('pointerdown',e=>{e.preventDefault();fire()});
+document.getElementById('start').onclick=()=>{document.getElementById('overlay').style.display='none';running=true};
+const stick=document.getElementById('stick'),nub=document.getElementById('nub');let sid=null;
+stick.addEventListener('pointerdown',e=>{sid=e.pointerId;stick.setPointerCapture(sid);joy(e)});
+stick.addEventListener('pointermove',e=>{if(e.pointerId===sid)joy(e)});
+stick.addEventListener('pointerup',()=>{sid=null;move={x:0,y:0};nub.style.transform='translate(0,0)'});
+function joy(e){let r=stick.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),len=Math.hypot(dx,dy),m=Math.min(36,len);move={x:len?dx/len*m/36:0,y:len?dy/len*m/36:0};nub.style.transform=`translate(${move.x*36}px,${move.y*36}px)`}
+addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+function draw(t){ctx.clearRect(0,0,w,h);ctx.fillStyle='#121e2c';ctx.fillRect(0,0,w,h);ctx.strokeStyle='#26394e';ctx.lineWidth=1;for(let x=0;x<w;x+=48){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}for(let y=0;y<h;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+if(running){let dx=move.x+(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=move.y+(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0),l=Math.hypot(dx,dy)||1;player.x=Math.max(18,Math.min(w-18,player.x+dx/l*3.4));player.y=Math.max(70,Math.min(h-18,player.y+dy/l*3.4))}
+for(let b of bots){ctx.fillStyle=b.tag?'#61e6ff':'#ff9b45';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#14202d';ctx.fillRect(b.x-5,b.y-4,3,3);ctx.fillRect(b.x+3,b.y-4,3,3);ctx.fillStyle='#dcecff';ctx.font='10px Arial';ctx.textAlign='center';ctx.fillText('БОТ',b.x,b.y+27)}
+ctx.fillStyle='#50d5ff';ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d9f7ff';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#eaf8ff';ctx.font='12px Arial';ctx.textAlign='center';ctx.fillText('ТЫ',player.x,player.y+28);
+requestAnimationFrame(draw)}
+requestAnimationFrame(draw);
+})();
+</script>
+</body></html>
